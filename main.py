@@ -75,14 +75,14 @@ CALORIE_TABLE = {
     "japchae_rice":   {"foodName": "잡채밥(1그릇)",       "calories": 750},
     "pork_cutlet_rice": {"foodName": "돈까스덮밥(1그릇)", "calories": 900},
     "gyudon_korean":  {"foodName": "소고기덮밥(1그릇)",   "calories": 820},
-
     "doenjang_jjigae": {"foodName": "된장찌개(1인분)",     "calories": 200},
     "kimchi_jjigae":   {"foodName": "김치찌개(1인분)",     "calories": 250},
     "soft_tofu_stew":  {"foodName": "순두부찌개(1인분)",   "calories": 300},
     "seaweed_soup":    {"foodName": "미역국(1인분)",       "calories": 120},
     "seolleongtang":   {"foodName": "설렁탕(1그릇)",       "calories": 450},
     "galbitang":       {"foodName": "갈비탕(1그릇)",       "calories": 550},
-
+    "gamjatang":     {"foodName": "감자탕(1그릇)", "calories": 700},
+    
     # 03. 면 / 분식
     "jajangmyeon":      {"foodName": "짜장면(1그릇)",      "calories": 800},
     "jjamppong":        {"foodName": "짬뽕(1그릇)",        "calories": 750},
@@ -126,6 +126,47 @@ CALORIE_TABLE = {
     "injeolmi":        {"foodName": "인절미(조각 1개)",    "calories": 70},
     "yakgwa":          {"foodName": "약과(1개)",           "calories": 130},
     "sikhye":          {"foodName": "식혜(컵 1잔)",        "calories": 120},
+
+       # =============================
+    # 🍣 일식 Japanese Food
+    # =============================
+    "sushi": {"foodName": "스시(접시 1개)", "calories": 150},
+    "ramen_jp": {"foodName": "일본 라멘(1그릇)", "calories": 550},
+    "udon": {"foodName": "우동(1그릇)", "calories": 550},
+    "katsudon": {"foodName": "가츠동(1그릇)", "calories": 900},
+    "gyudon": {"foodName": "규동(1그릇)", "calories": 820},
+    "takoyaki": {"foodName": "타코야끼(6개)", "calories": 350},
+    "tempura": {"foodName": "튀김(모듬 1접시)", "calories": 600},
+
+      # =============================
+    # 🥡 중식 Chinese Food
+    # =============================
+    "jajangmyeon": {"foodName": "짜장면(1그릇)", "calories": 800},
+    "jjamppong": {"foodName": "짬뽕(1그릇)", "calories": 750},
+    "tangsuyuk": {"foodName": "탕수육(1인분)", "calories": 900},
+    "fried_rice_cn": {"foodName": "중식 볶음밥(1그릇)", "calories": 720},
+    "mapo_tofu": {"foodName": "마파두부(1인분)", "calories": 650},
+    "dumpling_cn": {"foodName": "물만두(10개)", "calories": 380},
+
+    # =============================
+    # 🍰 디저트 / 베이커리 Dessert
+    # =============================
+    "cake": {"foodName": "케이크(1조각)", "calories": 350},
+    "icecream": {"foodName": "아이스크림(1회 제공)", "calories": 250},
+    "bread_cream": {"foodName": "크림빵(1개)", "calories": 320},
+    "donut": {"foodName": "도넛(1개)", "calories": 280},
+    "croissant": {"foodName": "크루아상(1개)", "calories": 260},
+    "cookie": {"foodName": "쿠키(1개)", "calories": 80},
+
+    # =============================
+    # 🧃 음료 Drinks
+    # =============================
+    "cola": {"foodName": "콜라(캔 1개)", "calories": 140},
+    "cider": {"foodName": "사이다(캔 1개)", "calories": 140},
+    "americano": {"foodName": "아메리카노(1잔)", "calories": 5},
+    "latte": {"foodName": "카페라떼(1잔)", "calories": 180},
+    "milk_tea": {"foodName": "밀크티(1잔)", "calories": 300},
+    "orange_juice": {"foodName": "오렌지주스(1잔)", "calories": 110},
 }
 
 
