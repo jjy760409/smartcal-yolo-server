@@ -2869,14 +2869,6 @@ CALORIE_TABLE = {
         "portion": "1그릇",
         "tags": ["우동"],
     },
-    "jp_salmon_sushi": {
-        "foodName": "연어초밥(6pcs)",
-        "calories": 360,
-        "cuisine": "Japanese",
-        "category": "밥",
-        "portion": "6개",
-        "tags": ["신선"],
-    },
     "jp_spicy_ramen": {
         "foodName": "매운 일본 라멘",
         "calories": 610,
