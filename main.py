@@ -3718,6 +3718,135 @@ const CALORIE_TABLE_RAW = {
         "tags": ["고소","전통"],
     },
 }
+
+// =======================================
+// 2단계) 점수 / 위험 / 추천 자동 생성 함수
+// =======================================
+function buildMetaForFood(food) {
+  const kcal = food.calories || 0;
+  const tags = food.tags || [];
+  const category = food.category || "";
+
+  // 1) 기본 점수 (칼로리 기준)
+  let healthScore = 80;     // 0~100
+  let scoreLabel = "보통 한 끼";
+  let riskLevel = "MID";    // LOW / MID / HIGH
+  let riskLabel = "적당히 주의";
+  let recommendSummary = "하루 총 칼로리 안에서 적당히 즐기기";
+  let recommendDetail = "다른 끼니는 조금 가볍게 맞추면 균형이 좋아요.";
+
+  // 🔸 칼로리 단계별 점수 + 위험
+  if (kcal <= 150) {
+    healthScore = 95;
+    scoreLabel = "초저칼로리";
+    riskLevel = "LOW";
+    riskLabel = "안심 메뉴";
+    recommendSummary = "다이어트·간식용으로 아주 좋음";
+    recommendDetail = "배가 많이 고프지 않을 때 간단히 먹기 좋아요.";
+  } else if (kcal <= 300) {
+    healthScore = 90;
+    scoreLabel = "가벼운 한 끼";
+    riskLevel = "LOW";
+    riskLabel = "부담 적음";
+    recommendSummary = "자주 먹어도 큰 부담 없음";
+    recommendDetail = "샐러드·과일과 같이 먹으면 더 좋습니다.";
+  } else if (kcal <= 500) {
+    healthScore = 75;
+    scoreLabel = "평균적인 한 끼";
+    riskLevel = "MID";
+    riskLabel = "적당한 칼로리";
+    recommendSummary = "하루 1~2번 정도 무난";
+    recommendDetail = "야식보다는 점심·저녁 메인 메뉴로 추천.";
+  } else if (kcal <= 800) {
+    healthScore = 60;
+    scoreLabel = "조금 높은 칼로리";
+    riskLevel = "MID";
+    riskLabel = "양·소스 주의";
+    recommendSummary = "일주일에 2~3회 이내로";
+    recommendDetail = "국·소스·치즈 양을 줄이면 체감 칼로리를 줄일 수 있어요.";
+  } else {
+    healthScore = 45;
+    scoreLabel = "고칼로리 폭탄";
+    riskLevel = "HIGH";
+    riskLabel = "체중·혈당 주의";
+    recommendSummary = "가끔 특별한 날에만";
+    recommendDetail = "야채·샐러드와 같이 먹고, 다른 끼니는 가볍게 조절하는 것을 추천.";
+  }
+
+  // 🔸 다이어트/샐러드/과일 태그는 가산점
+  const isDiet =
+    tags.includes("다이어트") ||
+    tags.includes("헬스") ||
+    tags.includes("저칼로리") ||
+    category.includes("샐러드") ||
+    category.includes("과일");
+
+  if (isDiet) {
+    healthScore = Math.min(100, healthScore + 10);
+    if (riskLevel === "MID") riskLevel = "LOW";
+    scoreLabel = "다이어트 친화 메뉴";
+    recommendSummary = "다이어트·체중관리용으로 적합";
+    recommendDetail = "단백질·섬유질 위주 식단에 잘 어울립니다.";
+  }
+
+  // 🔸 야식/폭탄 태그는 위험도 상향
+  const isNightBomb =
+    tags.includes("야식폭탄") ||
+    tags.includes("위험한칼로리") ||
+    tags.includes("야식") ||
+    tags.includes("술안주");
+
+  if (isNightBomb || category === "세트") {
+    riskLevel = "HIGH";
+    riskLabel = "야식·고칼로리 주의";
+    healthScore = Math.min(healthScore, 55);
+    if (kcal >= 900) {
+      recommendSummary = "아주 가끔, 특별한 날에만";
+      recommendDetail = "취침 4시간 전에는 피하는 것을 강력 추천합니다.";
+    } else {
+      recommendSummary = "주 1~2회 이하 권장";
+      recommendDetail = "가능하면 점심에 먹고, 저녁은 가볍게 맞춰 주세요.";
+    }
+  }
+
+  // 🔸 과일/자연식은 안정성 상향
+  if (category === "과일" || tags.includes("자연식")) {
+    riskLevel = "LOW";
+    riskLabel = "자연식 위주";
+    healthScore = Math.max(healthScore, 85);
+    recommendSummary = "간식·후식으로 좋음";
+    recommendDetail = "단, 당 조절이 필요하다면 하루 총 과일 양을 함께 관리해 주세요.";
+  }
+
+  return {
+    score: {
+      value: healthScore,    // 0~100
+      label: scoreLabel,     // “초저칼로리”, “보통 한 끼” 등
+    },
+    risk: {
+      level: riskLevel,      // "LOW" | "MID" | "HIGH"
+      label: riskLabel,      // “야식·고칼로리 주의” 등
+    },
+    recommend: {
+      summary: recommendSummary,  // 카드에 한 줄 요약
+      detail: recommendDetail,    // 상세 설명 박스에 사용
+    },
+  };
+}
+
+// =======================================
+// 3단계) 최종 사용용 CALORIE_TABLE 만들기
+// =======================================
+const CALORIE_TABLE = {};
+
+Object.entries(CALORIE_TABLE_RAW).forEach(([key, food]) => {
+  const meta = buildMetaForFood(food);
+  CALORIE_TABLE[key] = {
+    ...food,
+    ...meta,  // 👉 score / risk / recommend 필드 추가
+  };
+});
+
 # -----------------------------
 # 5. base64 → PIL.Image 변환 함수
 # -----------------------------
