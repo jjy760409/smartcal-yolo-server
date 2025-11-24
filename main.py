@@ -17,7 +17,7 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],   # 나중에 smartcal-ai.com 으로 제한해도 됨
+    allow_origins=["*"],   # 나중에 smartcal-ai.com 으로 변경 가능
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -34,142 +34,400 @@ class ImageData(BaseModel):
 # -----------------------------
 # 3. YOLO 모델 로딩
 # -----------------------------
-MODEL_PATH = "yolov8n.pt"  # 나중에 yolov8m.pt 로 바꿔도 됨
+MODEL_PATH = "yolov8n.pt"  # 나중에 yolov8m.pt 등으로 변경 가능
 model = YOLO(MODEL_PATH)
 names = model.names  # 클래스 이름 딕셔너리 (id → name)
 
 
 # -----------------------------
 # 4. 확장된 칼로리/정보 테이블
-#    - YOLO COCO 클래스 이름 기준
-#    - 각 항목에 한식/양식/일식/중식/디저트 등 정보 추가
-# -----------------------------
-# 키: YOLO 클래스 이름
-# -----------------------------
-# 4. 확장된 칼로리 테이블
-#    - YOLO COCO 클래스 이름 기준 (영문 key)
-#    - name: 한국어 이름 (+ 1인분 설명)
-#    - kcal: 대략적인 칼로리
-#    - cuisine: 한식/서양/일식/중식/동남아/중동/디저트/과일/해산물 등
-#    - category: 밥/면/찌개/튀김/빵/디저트/과일 등
-#    - portion: 기준량(1인분, 1조각 등)
+#    - key: YOLO 클래스 이름 또는 커스텀 클래스 이름
+#    - foodName: 한국어 표시 이름
+#    - calories: 대략적인 1인분 칼로리
+#    - cuisine: 한식/일식/중식/디저트/음료 등
+#    - category: 밥/면/국물/튀김/디저트/음료 등
+#    - portion: 기준량 설명
+#    - tags: 추가 태그(선택)
 # -----------------------------
 CALORIE_TABLE = {
-    # 01. 대표 한식 단품
-    "kimbap":         {"foodName": "김밥(1줄)",           "calories": 320},
-    "gimbap":         {"foodName": "김밥(1줄)",           "calories": 320},
-    "ramen":          {"foodName": "라면(1봉지)",         "calories": 500},
-    "tteokbokki":     {"foodName": "떡볶이(1인분)",       "calories": 600},
-    "sundae":         {"foodName": "순대(1인분)",         "calories": 450},
-    "fried_chicken":  {"foodName": "치킨(한 조각)",       "calories": 250},
-    "whole_chicken":  {"foodName": "치킨(뼈 있는 1마리)", "calories": 1800},
-    "yangnyeom_chicken": {"foodName": "양념치킨(1조각)", "calories": 280},
-    "dakgangjeong":   {"foodName": "닭강정(1인분)",       "calories": 700},
+    # =============================
+    # 🍚 한식 - 밥/비빔밥
+    # =============================
+    "k_rice_basic": {
+        "foodName": "쌀밥(1공기)",
+        "calories": 300,
+        "cuisine": "Korean",
+        "category": "밥",
+        "portion": "1공기(210g)",
+        "tags": ["밥", "기본"],
+    },
+    "k_rice_brown": {
+        "foodName": "현미밥(1공기)",
+        "calories": 330,
+        "cuisine": "Korean",
+        "category": "밥",
+        "portion": "1공기(210g)",
+        "tags": ["건강"],
+    },
+    "k_bibimbap": {
+        "foodName": "비빔밥(1그릇)",
+        "calories": 550,
+        "cuisine": "Korean",
+        "category": "밥",
+        "portion": "1그릇",
+        "tags": ["정식"],
+    },
+    "k_kimchi_fried_rice": {
+        "foodName": "김치볶음밥",
+        "calories": 680,
+        "cuisine": "Korean",
+        "category": "볶음밥",
+        "portion": "1그릇",
+        "tags": ["볶음밥"],
+    },
+    "k_japgokbab": {
+        "foodName": "잡곡밥",
+        "calories": 350,
+        "cuisine": "Korean",
+        "category": "밥",
+        "portion": "1공기",
+        "tags": ["건강"],
+    },
+    "k_gimbap_basic": {
+        "foodName": "김밥(1줄)",
+        "calories": 320,
+        "cuisine": "Korean",
+        "category": "분식",
+        "portion": "1줄",
+        "tags": ["분식"],
+    },
+    "k_omurice": {
+        "foodName": "오므라이스",
+        "calories": 700,
+        "cuisine": "Korean",
+        "category": "밥",
+        "portion": "1접시",
+        "tags": ["어린이", "경양식"],
+    },
 
-    # 02. 밥 / 국 / 찌개 / 덮밥
-    "bibimbap":       {"foodName": "비빔밥(1그릇)",       "calories": 650},
-    "kimchi_fried_rice": {"foodName": "김치볶음밥(1그릇)", "calories": 700},
-    "fried_rice":     {"foodName": "볶음밥(1그릇)",       "calories": 680},
-    "white_rice":     {"foodName": "쌀밥(1공기)",         "calories": 300},
-    "brown_rice":     {"foodName": "현미밥(1공기)",       "calories": 280},
-    "japchae_rice":   {"foodName": "잡채밥(1그릇)",       "calories": 750},
-    "pork_cutlet_rice": {"foodName": "돈까스덮밥(1그릇)", "calories": 900},
-    "gyudon_korean":  {"foodName": "소고기덮밥(1그릇)",   "calories": 820},
-    "doenjang_jjigae": {"foodName": "된장찌개(1인분)",     "calories": 200},
-    "kimchi_jjigae":   {"foodName": "김치찌개(1인분)",     "calories": 250},
-    "soft_tofu_stew":  {"foodName": "순두부찌개(1인분)",   "calories": 300},
-    "seaweed_soup":    {"foodName": "미역국(1인분)",       "calories": 120},
-    "seolleongtang":   {"foodName": "설렁탕(1그릇)",       "calories": 450},
-    "galbitang":       {"foodName": "갈비탕(1그릇)",       "calories": 550},
-    "gamjatang":     {"foodName": "감자탕(1그릇)", "calories": 700},
-    
-    # 03. 면 / 분식
-    "jajangmyeon":      {"foodName": "짜장면(1그릇)",      "calories": 800},
-    "jjamppong":        {"foodName": "짬뽕(1그릇)",        "calories": 750},
-    "cold_noodles":     {"foodName": "냉면(1그릇)",        "calories": 550},
-    "bibim_naengmyeon": {"foodName": "비빔냉면(1그릇)",    "calories": 650},
-    "kalguksu":         {"foodName": "칼국수(1그릇)",      "calories": 650},
-    "udon":             {"foodName": "우동(1그릇)",        "calories": 550},
-    "rabokki":          {"foodName": "라볶이(1인분)",      "calories": 700},
-    "guksu":            {"foodName": "잔치국수(1그릇)",    "calories": 550},
+    # =============================
+    # 🍜 한식 - 면/분식
+    # =============================
+    "k_ramen": {
+        "foodName": "라면(1봉지)",
+        "calories": 500,
+        "cuisine": "Korean",
+        "category": "면",
+        "portion": "1봉지 기준",
+        "tags": ["간편"],
+    },
+    "k_tteokbokki_basic": {
+        "foodName": "기본 떡볶이(1인분)",
+        "calories": 550,
+        "cuisine": "Korean",
+        "category": "분식",
+        "portion": "1인분",
+        "tags": ["분식", "매운"],
+    },
+    "k_tteokbokki_cheese": {
+        "foodName": "치즈 떡볶이",
+        "calories": 680,
+        "cuisine": "Korean",
+        "category": "분식",
+        "portion": "1인분",
+        "tags": ["치즈", "분식"],
+    },
+    "k_bibim_naeng": {
+        "foodName": "비빔냉면",
+        "calories": 540,
+        "cuisine": "Korean",
+        "category": "면",
+        "portion": "1그릇",
+        "tags": ["여름"],
+    },
+    "k_plain_naeng": {
+        "foodName": "물냉면",
+        "calories": 460,
+        "cuisine": "Korean",
+        "category": "면",
+        "portion": "1그릇",
+        "tags": ["여름"],
+    },
 
-    # 04. 고기 / 구이
-    "samgyeopsal":     {"foodName": "삼겹살(100g)",        "calories": 520},
-    "samgyeopsal_set": {"foodName": "삼겹살(1인분, 200g)", "calories": 1040},
-    "bulgogi":         {"foodName": "소불고기(1인분)",     "calories": 550},
-    "dakgalbi":        {"foodName": "닭갈비(1인분)",       "calories": 700},
-    "galbi":           {"foodName": "돼지갈비(1인분)",     "calories": 800},
-    "bossam":          {"foodName": "보쌈(1인분)",         "calories": 650},
-    "jeyuk_bokkeum":   {"foodName": "제육볶음(1인분)",     "calories": 700},
-    "soondae_guk":     {"foodName": "순댓국(1그릇)",       "calories": 650},
+    # 튀김/분식 사이드
+    "k_fried_squid": {
+        "foodName": "오징어튀김(2개)",
+        "calories": 320,
+        "cuisine": "Korean",
+        "category": "튀김",
+        "portion": "2개",
+        "tags": ["분식"],
+    },
+    "k_fried_shrimp": {
+        "foodName": "새우튀김(2개)",
+        "calories": 380,
+        "cuisine": "Korean",
+        "category": "튀김",
+        "portion": "2개",
+        "tags": ["분식"],
+    },
+    "k_bungeoppang": {
+        "foodName": "붕어빵(2개)",
+        "calories": 340,
+        "cuisine": "Korean",
+        "category": "간식",
+        "portion": "2개",
+        "tags": ["겨울간식"],
+    },
 
-    # 05. 전 / 튀김
-    "kimchi_jeon":     {"foodName": "김치전(1장)",         "calories": 300},
-    "pajeon":          {"foodName": "파전(1장)",           "calories": 450},
-    "haemul_pajeon":   {"foodName": "해물파전(1장)",       "calories": 550},
-    "fried_shrimp":    {"foodName": "새우튀김(1개)",       "calories": 80},
-    "fried_mandu":     {"foodName": "군만두(1개)",         "calories": 70},
-    "steamed_mandu":   {"foodName": "찐만두(1개)",         "calories": 50},
+    # =============================
+    # 🍖 한식 - 고기/BBQ
+    # =============================
+    "k_samgyeopsal": {
+        "foodName": "삼겹살(200g)",
+        "calories": 780,
+        "cuisine": "Korean",
+        "category": "고기",
+        "portion": "200g",
+        "tags": ["구이"],
+    },
+    "k_galbi": {
+        "foodName": "양념갈비(200g)",
+        "calories": 890,
+        "cuisine": "Korean",
+        "category": "고기",
+        "portion": "200g",
+        "tags": ["단짠"],
+    },
+    "k_bulgogi": {
+        "foodName": "불고기",
+        "calories": 510,
+        "cuisine": "Korean",
+        "category": "고기",
+        "portion": "1인분",
+        "tags": ["정식"],
+    },
+    "k_jeyuk": {
+        "foodName": "제육볶음",
+        "calories": 650,
+        "cuisine": "Korean",
+        "category": "고기",
+        "portion": "1인분",
+        "tags": ["매운"],
+    },
 
-    # 06. 반찬 / 사이드
-    "kimchi":          {"foodName": "배추김치(소접시)",    "calories": 25},
-    "kkakdugi":        {"foodName": "깍두기(소접시)",      "calories": 30},
-    "egg_roll":        {"foodName": "계란말이(조각 1개)",  "calories": 60},
-    "fried_egg":       {"foodName": "계란후라이(1개)",     "calories": 90},
-    "cheese_slice":    {"foodName": "슬라이스 치즈(1장)",  "calories": 70},
-    "sausage_pan":     {"foodName": "소시지볶음(소접시)",  "calories": 180},
-    "fishcake":        {"foodName": "어묵볶음(소접시)",    "calories": 150},
+    # =============================
+    # 🍲 한식 - 국/찌개
+    # =============================
+    "k_kimchi_stew": {
+        "foodName": "김치찌개",
+        "calories": 450,
+        "cuisine": "Korean",
+        "category": "찌개",
+        "portion": "1인분",
+        "tags": ["찌개"],
+    },
+    "k_soybean_paste": {
+        "foodName": "된장찌개",
+        "calories": 350,
+        "cuisine": "Korean",
+        "category": "찌개",
+        "portion": "1인분",
+        "tags": ["찌개"],
+    },
+    "k_sundae_soup": {
+        "foodName": "순대국밥",
+        "calories": 630,
+        "cuisine": "Korean",
+        "category": "국밥",
+        "portion": "1그릇",
+        "tags": ["국밥"],
+    },
+    "k_gamjatang": {
+        "foodName": "감자탕",
+        "calories": 700,
+        "cuisine": "Korean",
+        "category": "탕",
+        "portion": "1인분",
+        "tags": ["해장"],
+    },
+    "k_miyeok": {
+        "foodName": "미역국",
+        "calories": 210,
+        "cuisine": "Korean",
+        "category": "국",
+        "portion": "1그릇",
+        "tags": ["기본"],
+    },
 
-    # 07. 한식 디저트 / 기타
-    "hotteok":         {"foodName": "호떡(1개)",           "calories": 230},
-    "bungeoppang":     {"foodName": "붕어빵(1개)",         "calories": 180},
-    "injeolmi":        {"foodName": "인절미(조각 1개)",    "calories": 70},
-    "yakgwa":          {"foodName": "약과(1개)",           "calories": 130},
-    "sikhye":          {"foodName": "식혜(컵 1잔)",        "calories": 120},
-
-       # =============================
+    # =============================
     # 🍣 일식 Japanese Food
     # =============================
-    "sushi": {"foodName": "스시(접시 1개)", "calories": 150},
-    "ramen_jp": {"foodName": "일본 라멘(1그릇)", "calories": 550},
-    "udon": {"foodName": "우동(1그릇)", "calories": 550},
-    "katsudon": {"foodName": "가츠동(1그릇)", "calories": 900},
-    "gyudon": {"foodName": "규동(1그릇)", "calories": 820},
-    "takoyaki": {"foodName": "타코야끼(6개)", "calories": 350},
-    "tempura": {"foodName": "튀김(모듬 1접시)", "calories": 600},
+    "sushi": {
+        "foodName": "스시(접시 1개)",
+        "calories": 150,
+        "cuisine": "Japanese",
+        "category": "밥",
+        "portion": "초밥 2~3개 기준",
+        "tags": ["일식"],
+    },
+    "ramen_jp": {
+        "foodName": "일본 라멘(1그릇)",
+        "calories": 550,
+        "cuisine": "Japanese",
+        "category": "면",
+        "portion": "1그릇",
+        "tags": ["국물"],
+    },
+    "udon_jp": {
+        "foodName": "우동(1그릇)",
+        "calories": 550,
+        "cuisine": "Japanese",
+        "category": "면",
+        "portion": "1그릇",
+        "tags": ["국물"],
+    },
+    "katsudon": {
+        "foodName": "가츠동(1그릇)",
+        "calories": 900,
+        "cuisine": "Japanese",
+        "category": "덮밥",
+        "portion": "1그릇",
+        "tags": ["덮밥"],
+    },
+    "takoyaki": {
+        "foodName": "타코야끼(6개)",
+        "calories": 350,
+        "cuisine": "Japanese",
+        "category": "간식",
+        "portion": "6개",
+        "tags": ["간식"],
+    },
 
-      # =============================
+    # =============================
     # 🥡 중식 Chinese Food
     # =============================
-    "jajangmyeon": {"foodName": "짜장면(1그릇)", "calories": 800},
-    "jjamppong": {"foodName": "짬뽕(1그릇)", "calories": 750},
-    "tangsuyuk": {"foodName": "탕수육(1인분)", "calories": 900},
-    "fried_rice_cn": {"foodName": "중식 볶음밥(1그릇)", "calories": 720},
-    "mapo_tofu": {"foodName": "마파두부(1인분)", "calories": 650},
-    "dumpling_cn": {"foodName": "물만두(10개)", "calories": 380},
+    "jajangmyeon": {
+        "foodName": "짜장면(1그릇)",
+        "calories": 800,
+        "cuisine": "Chinese",
+        "category": "면",
+        "portion": "1그릇",
+        "tags": ["중식"],
+    },
+    "jjamppong": {
+        "foodName": "짬뽕(1그릇)",
+        "calories": 750,
+        "cuisine": "Chinese",
+        "category": "면",
+        "portion": "1그릇",
+        "tags": ["중식", "매운"],
+    },
+    "tangsuyuk": {
+        "foodName": "탕수육(1인분)",
+        "calories": 900,
+        "cuisine": "Chinese",
+        "category": "튀김",
+        "portion": "1인분",
+        "tags": ["중식"],
+    },
+    "fried_rice_cn": {
+        "foodName": "중식 볶음밥(1그릇)",
+        "calories": 720,
+        "cuisine": "Chinese",
+        "category": "볶음밥",
+        "portion": "1그릇",
+        "tags": ["중식"],
+    },
 
     # =============================
     # 🍰 디저트 / 베이커리 Dessert
     # =============================
-    "cake": {"foodName": "케이크(1조각)", "calories": 350},
-    "icecream": {"foodName": "아이스크림(1회 제공)", "calories": 250},
-    "bread_cream": {"foodName": "크림빵(1개)", "calories": 320},
-    "donut": {"foodName": "도넛(1개)", "calories": 280},
-    "croissant": {"foodName": "크루아상(1개)", "calories": 260},
-    "cookie": {"foodName": "쿠키(1개)", "calories": 80},
+    "cake": {
+        "foodName": "케이크(1조각)",
+        "calories": 350,
+        "cuisine": "Dessert",
+        "category": "디저트",
+        "portion": "1조각",
+        "tags": ["디저트"],
+    },
+    "icecream": {
+        "foodName": "아이스크림(1회 제공)",
+        "calories": 250,
+        "cuisine": "Dessert",
+        "category": "디저트",
+        "portion": "1스쿱 기준",
+        "tags": ["간식"],
+    },
+    "donut": {
+        "foodName": "도넛(1개)",
+        "calories": 280,
+        "cuisine": "Dessert",
+        "category": "디저트",
+        "portion": "1개",
+        "tags": ["간식"],
+    },
+    "cookie": {
+        "foodName": "쿠키(1개)",
+        "calories": 80,
+        "cuisine": "Dessert",
+        "category": "디저트",
+        "portion": "1개",
+        "tags": ["간식"],
+    },
 
     # =============================
     # 🧃 음료 Drinks
     # =============================
-    "cola": {"foodName": "콜라(캔 1개)", "calories": 140},
-    "cider": {"foodName": "사이다(캔 1개)", "calories": 140},
-    "americano": {"foodName": "아메리카노(1잔)", "calories": 5},
-    "latte": {"foodName": "카페라떼(1잔)", "calories": 180},
-    "milk_tea": {"foodName": "밀크티(1잔)", "calories": 300},
-    "orange_juice": {"foodName": "오렌지주스(1잔)", "calories": 110},
+    "cola": {
+        "foodName": "콜라(캔 1개)",
+        "calories": 140,
+        "cuisine": "Drink",
+        "category": "탄산음료",
+        "portion": "355ml",
+        "tags": ["음료"],
+    },
+    "cider": {
+        "foodName": "사이다(캔 1개)",
+        "calories": 140,
+        "cuisine": "Drink",
+        "category": "탄산음료",
+        "portion": "355ml",
+        "tags": ["음료"],
+    },
+    "americano": {
+        "foodName": "아메리카노(1잔)",
+        "calories": 5,
+        "cuisine": "Drink",
+        "category": "커피",
+        "portion": "1잔",
+        "tags": ["저칼로리"],
+    },
+    "latte": {
+        "foodName": "카페라떼(1잔)",
+        "calories": 180,
+        "cuisine": "Drink",
+        "category": "커피",
+        "portion": "1잔",
+        "tags": ["우유"],
+    },
+    "milk_tea": {
+        "foodName": "밀크티(1잔)",
+        "calories": 300,
+        "cuisine": "Drink",
+        "category": "티",
+        "portion": "1잔",
+        "tags": ["디저트"],
+    },
+    "orange_juice": {
+        "foodName": "오렌지주스(1잔)",
+        "calories": 110,
+        "cuisine": "Drink",
+        "category": "주스",
+        "portion": "1잔",
+        "tags": ["과일주스"],
+    },
 }
-
-
 
 
 # -----------------------------
@@ -229,11 +487,11 @@ def predict(data: ImageData):
                 info = CALORIE_TABLE[cls_name]
                 items.append(
                     {
-                        "foodName": info["name"],
-                        "calories": info["kcal"],
-                        "cuisine": info["cuisine"],    # 한식/양식/일식/중식/기타
-                        "category": info["category"],  # 주식/반찬/디저트/과일 등
-                        "portion": info["portion"],    # 기본 1인분 설명
+                        "foodName": info["foodName"],
+                        "calories": info["calories"],
+                        "cuisine": info["cuisine"],
+                        "category": info["category"],
+                        "portion": info["portion"],
                         "conf": round(conf, 3),
                     }
                 )
@@ -272,6 +530,7 @@ def predict(data: ImageData):
                 "cuisine": item["cuisine"],
                 "category": item["category"],
                 "portion": item["portion"],
+                "conf": item["conf"],
             }
             for item in items
         ],
